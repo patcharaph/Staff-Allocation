@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOJO STAFF - Hybrid Schedule</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
+    <!-- Firebase Compat SDKs (Works locally without modules) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #051025; color: white; overflow: hidden; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { height: 6px; width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a192f; }
+        ::-webkit-scrollbar-thumb { background: #233554; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ccff00; }
+
+        /* Sortable Styles */
+        .sortable-ghost { opacity: 0.4; background: #ccff00 !important; border: 2px dashed white !important; }
+        .sortable-drag { opacity: 1 !important; transform: scale(1.05) rotate(3deg); cursor: grabbing; z-index: 9999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        
+        /* Trash Zone Hover Effect */
+        .trash-active { background-color: rgba(220, 38, 38, 0.2); border-color: #ef4444; transform: scale(1.1); }
+
+        /* Loading Overlay */
+        #loading-overlay { display: flex; transition: opacity 0.5s ease; }
+        body.loaded #loading-overlay { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <!-- Loading Screen -->
+    <div id="loading-overlay" class="fixed inset-0 bg-[#051025] z-[100] flex flex-col items-center justify-center space-y-4">
+        <div class="w-12 h-12 border-4 border-[#233554] border-t-[#ccff00] rounded-full animate-spin"></div>
+        <p class="text-[#ccff00] font-mono text-sm animate-pulse" id="loading-text">INITIALIZING APP...</p>
+    </div>
+
+    <!-- Background Shapes -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div class="absolute top-[-100px] left-[-100px] w-[300px] h-[300px] bg-[#ccff00] rounded-full blur-[150px] opacity-10"></div>
+        <div class="absolute bottom-[-50px] right-[-50px] w-[200px] h-[200px] bg-[#ff6b00] rounded-full blur-[120px] opacity-10"></div>
+    </div>
+
+    <!-- LEFT SIDEBAR: STAFF POOL -->
+    <aside class="w-full md:w-80 bg-[#0a192f] border-r border-[#233554] flex flex-col z-20 shadow-2xl h-[40vh] md:h-full flex-shrink-0">
+        <div class="p-4 bg-[#112240] border-b border-[#233554]">
+            <div class="flex items-center gap-2 mb-1">
+                <i data-lucide="users" class="text-[#ccff00]"></i>
+                <h2 class="font-black text-lg uppercase tracking-wider">Staff Pool</h2>
+            </div>
+            <p class="text-xs text-gray-400">Drag staff to the schedule</p>
+        </div>
+
+        <div class="p-4 border-b border-[#233554] bg-[#0d1f3a]">
+            <form id="create-staff-form" class="space-y-2">
+                <input type="text" id="new-staff-name" placeholder="Name (e.g. Somchai)" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-sm text-white focus:border-[#ccff00] outline-none" required>
+                <div class="flex gap-2">
+                    <select id="new-staff-role" class="bg-[#051025] border border-[#233554] rounded p-2 text-xs text-white flex-1 outline-none">
+                        <option value="Manager">Manager</option>
+                        <option value="Staff">Staff</option>
+                        <option value="Part-time">Part-time</option>
+                    </select>
+                    <input type="number" id="new-staff-rate" value="100" class="w-16 bg-[#051025] border border-[#233554] rounded p-2 text-xs text-white outline-none" placeholder="Rate">
+                </div>
+                <button type="submit" class="w-full bg-[#233554] hover:bg-[#ccff00] hover:text-black text-gray-300 text-xs font-bold py-2 rounded transition-colors uppercase">
+                    + Create Staff
+                </button>
+            </form>
+        </div>
+
+        <div id="staff-pool" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+    </aside>
+
+    <!-- RIGHT MAIN: SCHEDULE BOARD -->
+    <main class="flex-1 relative flex flex-col h-[60vh] md:h-full bg-[#051025] overflow-hidden">
+        <header class="h-16 bg-[#0a192f]/80 backdrop-blur-md border-b border-[#233554] flex items-center justify-between px-6 z-10">
+            <div class="flex items-center gap-3">
+                <div id="mode-badge" class="bg-gray-600 text-white font-black px-2 py-1 rounded text-sm transform -rotate-2">OFFLINE</div>
+                <h1 class="text-xl font-bold tracking-tight text-white hidden md:block">ALLOCATION PLAN</h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400 uppercase tracking-widest">Total Cost</p>
+                    <p class="text-xl font-mono font-bold text-[#ccff00]" id="total-cost-display">฿0</p>
+                </div>
+                <button onclick="resetData()" class="p-2 text-gray-500 hover:text-red-500 transition-colors" title="Reset All Data">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+                <div id="status-indicator" class="w-2 h-2 rounded-full bg-gray-500" title="Status"></div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-x-auto overflow-y-hidden p-4">
+            <div id="schedule-board" class="flex gap-4 h-full pb-2 w-max"></div>
+        </div>
+
+        <div id="trash-zone" class="absolute bottom-6 right-6 w-16 h-16 bg-[#112240] border-2 border-red-900/50 rounded-full flex items-center justify-center shadow-2xl cursor-pointer transition-all z-50 group hover:bg-red-900/20 hover:border-red-500">
+            <i data-lucide="trash-2" class="w-6 h-6 text-gray-500 group-hover:text-red-500 transition-colors"></i>
+            <span class="absolute -top-8 text-xs font-bold text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded">Drop to Delete</span>
+        </div>
+    </main>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-[#112240] border border-[#ccff00] rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <i data-lucide="edit" class="w-4 h-4 text-[#ccff00]"></i> Edit Allocation
+            </h3>
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-id">
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400">Staff Name</label>
+                    <input type="text" id="edit-name" disabled class="w-full bg-[#0a192f] border border-[#233554] rounded p-2 text-gray-400 cursor-not-allowed">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-xs text-[#ccff00]">Start Time</label>
+                        <input type="time" id="edit-start" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00]">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs text-[#ccff00]">End Time</label>
+                        <input type="time" id="edit-end" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00]">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400">Hourly Rate</label>
+                    <input type="number" id="edit-rate" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00]">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 py-2 rounded bg-[#233554] text-gray-300 hover:text-white text-xs font-bold uppercase">Cancel</button>
+                    <button type="submit" class="flex-1 py-2 rounded bg-[#ccff00] text-black hover:bg-[#b3e600] text-xs font-bold uppercase">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES & STATE ---
+        const daysOfWeek = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+        const branches = ['ตลาดพุงกาง', 'พุทธบูชา36', 'โลตัสบางปะกอก', 'กรีนเพลส'];
+        
+        let staffDirectory = [];
+        let allocations = [];
+        
+        const API_BASE = 'http://localhost:3000/api';
+        let dbMode = 'api'; // 'api', 'local', or 'firebase'
+        let dbAppId = 'default-app';
+        let db = null;
+        let apiPoller = null;
+
+        // DOM Elements
+        const staffPoolEl = document.getElementById('staff-pool');
+        const scheduleBoardEl = document.getElementById('schedule-board');
+        const trashZoneEl = document.getElementById('trash-zone');
+        const totalCostEl = document.getElementById('total-cost-display');
+        const editModal = document.getElementById('edit-modal');
+        const modeBadge = document.getElementById('mode-badge');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        // --- APP INITIALIZATION ---
+        async function initApp() {
+            // Try API backend first
+            try {
+                await loadFromApi();
+                setMode('api');
+                apiPoller = setInterval(loadFromApi, 5000); // simple polling every 5s
+                document.body.classList.add('loaded');
+                return;
+            } catch (e) {
+                console.error("API backend unavailable, falling back to local mode.", e);
+            }
+
+            // Fallback to Local Mode
+            console.log("Running in Local Mode");
+            loadLocalData();
+            setMode('local');
+            renderAll();
+            
+            // Artificial delay to remove loader smoothly
+            setTimeout(() => document.body.classList.add('loaded'), 500);
+        }
+
+        function setMode(mode) {
+            dbMode = mode;
+            if (mode === 'firebase') {
+                modeBadge.textContent = "REALTIME";
+                modeBadge.className = "bg-[#ccff00] text-black font-black px-2 py-1 rounded text-sm transform -rotate-2";
+                statusIndicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+            } else if (mode === 'api') {
+                modeBadge.textContent = "API";
+                modeBadge.className = "bg-[#ccff00] text-black font-black px-2 py-1 rounded text-sm transform -rotate-2";
+                statusIndicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+            } else {
+                modeBadge.textContent = "OFFLINE";
+                modeBadge.className = "bg-gray-600 text-white font-black px-2 py-1 rounded text-sm transform -rotate-2";
+                statusIndicator.className = "w-2 h-2 rounded-full bg-orange-500";
+            }
+        }
+
+        // --- DATA LAYER (ADAPTER) ---
+        const apiFetch = async (url, options = {}) => {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `Request failed ${res.status}`);
+            }
+            if (res.status === 204) return null;
+            return res.json();
+        };
+
+        const mapStaffFromApi = (s) => ({
+            id: s.id,
+            name: s.name,
+            role: s.role,
+            defaultRate: s.default_rate
+        });
+
+        const mapAllocFromApi = (a) => ({
+            id: a.id,
+            staffId: a.staff_id,
+            name: a.name,
+            role: a.role,
+            branch: a.branch,
+            day: a.day,
+            start: a.start_time,
+            end: a.end_time,
+            rate: a.rate,
+            totalWage: a.total_wage
+        });
+
+        async function loadFromApi() {
+            const [staffRes, allocRes] = await Promise.all([
+                apiFetch(`${API_BASE}/staff`),
+                apiFetch(`${API_BASE}/allocations`)
+            ]);
+            staffDirectory = staffRes.map(mapStaffFromApi);
+            allocations = allocRes.map(mapAllocFromApi);
+            renderAll();
+        }
+        
+        // 1. Local Data Handling
+        function loadLocalData() {
+            const savedStaff = localStorage.getItem('staffDirectory');
+            const savedAlloc = localStorage.getItem('allocations');
+            
+            staffDirectory = savedStaff ? JSON.parse(savedStaff) : [
+                { id: 's1', name: 'แตง', role: 'Manager', defaultRate: 250 },
+                { id: 's2', name: 'หมวย', role: 'Sales', defaultRate: 150 },
+                { id: 's3', name: 'พลอย', role: 'Staff', defaultRate: 100 },
+                { id: 's4', name: 'หยี', role: 'Part-time', defaultRate: 80 }
+            ];
+
+            allocations = savedAlloc ? JSON.parse(savedAlloc) : [
+                 { id: 'a1', staffId: 's1', name: 'แตง', role: 'Manager', branch: 'ตลาดพุงกาง', day: 'จันทร์', start: '10:00', end: '19:00', rate: 250, totalWage: 2250 }
+            ];
+        }
+
+        function saveLocalData() {
+            if (dbMode !== 'local') return;
+            localStorage.setItem('staffDirectory', JSON.stringify(staffDirectory));
+            localStorage.setItem('allocations', JSON.stringify(allocations));
+            renderAll();
+        }
+
+        // 2. Firebase Listeners
+        function setupFirebaseListeners() {
+            const staffRef = db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('staff_pool');
+            const allocRef = db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('weekly_allocations');
+
+            staffRef.onSnapshot(snapshot => {
+                staffDirectory = [];
+                snapshot.forEach(doc => staffDirectory.push(doc.data()));
+                renderStaffPool();
+            });
+
+            allocRef.onSnapshot(snapshot => {
+                allocations = [];
+                snapshot.forEach(doc => allocations.push(doc.data()));
+                renderSchedule();
+                updateTotalCost();
+                document.body.classList.add('loaded');
+            });
+        }
+
+        // 3. Unified Actions
+        async function addStaff(name, role, rate) {
+            const newId = 's-' + Date.now();
+            const staffData = { id: newId, name, role, defaultRate: rate };
+
+            if (dbMode === 'firebase') {
+                await db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('staff_pool').doc(newId).set(staffData);
+            } else if (dbMode === 'api') {
+                const created = await apiFetch(`${API_BASE}/staff`, {
+                    method: 'POST',
+                    body: JSON.stringify({ id: newId, name, role, default_rate: rate })
+                });
+                staffDirectory.push(mapStaffFromApi(created));
+                renderStaffPool();
+            } else {
+                staffDirectory.push(staffData);
+                saveLocalData();
+            }
+        }
+
+        async function createAllocation(allocData) {
+            if (dbMode === 'firebase') {
+                await db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('weekly_allocations').doc(allocData.id).set(allocData);
+            } else if (dbMode === 'api') {
+                const payload = {
+                    id: allocData.id,
+                    staff_id: allocData.staffId,
+                    name: allocData.name,
+                    role: allocData.role,
+                    branch: allocData.branch,
+                    day: allocData.day,
+                    start_time: allocData.start,
+                    end_time: allocData.end,
+                    rate: allocData.rate,
+                    total_wage: allocData.totalWage
+                };
+                const created = await apiFetch(`${API_BASE}/allocations`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                allocations.push(mapAllocFromApi(created));
+                renderSchedule();
+                updateTotalCost();
+            } else {
+                allocations.push(allocData);
+                saveLocalData();
+            }
+        }
+
+        async function updateAllocation(id, data) {
+            if (dbMode === 'firebase') {
+                await db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('weekly_allocations').doc(id).update(data);
+            } else if (dbMode === 'api') {
+                const payload = {
+                    ...data,
+                    staff_id: data.staffId,
+                    start_time: data.start,
+                    end_time: data.end,
+                    total_wage: data.totalWage
+                };
+                const updated = await apiFetch(`${API_BASE}/allocations/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                const idx = allocations.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    allocations[idx] = mapAllocFromApi(updated);
+                    renderSchedule();
+                    updateTotalCost();
+                }
+            } else {
+                const idx = allocations.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    allocations[idx] = { ...allocations[idx], ...data };
+                    saveLocalData();
+                }
+            }
+        }
+
+        async function deleteAllocation(id) {
+            if (dbMode === 'firebase') {
+                await db.collection('artifacts').doc(dbAppId).collection('public').doc('data').collection('weekly_allocations').doc(id).delete();
+            } else if (dbMode === 'api') {
+                await apiFetch(`${API_BASE}/allocations/${id}`, { method: 'DELETE' });
+                allocations = allocations.filter(a => a.id !== id);
+                renderSchedule();
+                updateTotalCost();
+            } else {
+                allocations = allocations.filter(a => a.id !== id);
+                saveLocalData();
+            }
+        }
+
+        // --- UI RENDER FUNCTIONS ---
+        function renderAll() {
+            renderStaffPool();
+            renderSchedule();
+            updateTotalCost();
+            lucide.createIcons();
+        }
+
+        function renderStaffPool() {
+            staffPoolEl.innerHTML = '';
+            staffDirectory.forEach(staff => {
+                const el = document.createElement('div');
+                el.className = "bg-[#112240] p-3 rounded border border-[#233554] hover:border-[#ccff00] cursor-grab active:cursor-grabbing flex justify-between items-center group transition-colors select-none";
+                el.dataset.staffId = staff.id;
+                el.innerHTML = `
+                    <div>
+                        <h3 class="font-bold text-sm text-white">${staff.name}</h3>
+                        <span class="text-[10px] bg-[#233554] px-1.5 py-0.5 rounded text-gray-400 uppercase">${staff.role}</span>
+                    </div>
+                    <div class="text-xs font-mono text-gray-500 group-hover:text-[#ccff00]">฿${staff.defaultRate}/hr</div>
+                `;
+                staffPoolEl.appendChild(el);
+            });
+
+            new Sortable(staffPoolEl, {
+                group: { name: 'shared', pull: 'clone', put: false },
+                sort: false,
+                animation: 150,
+                onStart: () => document.body.classList.add('dragging-active'),
+                onEnd: () => document.body.classList.remove('dragging-active')
+            });
+        }
+
+        function renderSchedule() {
+            scheduleBoardEl.innerHTML = '';
+            daysOfWeek.forEach(day => {
+                const col = document.createElement('div');
+                col.className = "min-w-[300px] w-[300px] flex flex-col h-full bg-[#0a192f]/50 rounded-xl border border-[#233554] overflow-hidden flex-shrink-0";
+                
+                col.innerHTML = `
+                    <div class="bg-[#112240] p-3 border-b border-[#233554] flex justify-between items-center sticky top-0 z-10">
+                        <span class="font-bold text-white uppercase tracking-wider">${day}</span>
+                        <i data-lucide="calendar" class="w-4 h-4 text-[#ccff00]"></i>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar"></div>
+                `;
+                const dayContent = col.querySelector('.overflow-y-auto');
+
+                branches.forEach(branch => {
+                    const branchZone = document.createElement('div');
+                    branchZone.className = "space-y-1";
+                    branchZone.innerHTML = `<div class="flex items-center gap-2 px-1"><div class="w-1.5 h-1.5 rounded-full bg-[#7b61ff]"></div><h4 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">${branch}</h4></div>`;
+
+                    const list = document.createElement('div');
+                    list.className = "min-h-[60px] bg-[#051025]/50 rounded-lg p-2 border border-dashed border-[#233554] transition-colors";
+                    list.dataset.day = day;
+                    list.dataset.branch = branch;
+
+                    const items = allocations.filter(a => a.day === day && a.branch === branch);
+                    items.forEach(item => list.appendChild(createScheduleCard(item)));
+
+                    branchZone.appendChild(list);
+                    dayContent.appendChild(branchZone);
+
+                    new Sortable(list, {
+                        group: { name: 'shared', pull: true, put: true },
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        onAdd: (evt) => handleDrop(evt, list)
+                    });
+                });
+                scheduleBoardEl.appendChild(col);
+            });
+            lucide.createIcons();
+        }
+
+        function createScheduleCard(item) {
+            const el = document.createElement('div');
+            el.className = "bg-[#112240] rounded p-3 border border-[#233554] hover:border-[#ccff00] cursor-pointer shadow-sm relative group select-none";
+            el.dataset.id = item.id;
+            el.onclick = () => openEditModal(item.id);
+            el.innerHTML = `
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-[#ccff00]"></div>
+                <div class="pl-2">
+                    <div class="flex justify-between items-start">
+                        <h4 class="font-bold text-white text-sm truncate">${item.name}</h4>
+                        <span class="text-[10px] font-mono text-[#ff6b00]">฿${item.totalWage.toLocaleString()}</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] bg-[#051025] px-1 py-0.5 rounded text-gray-400">${item.role}</span>
+                        <span class="text-[10px] text-gray-500 font-mono flex items-center gap-1">
+                            <i data-lucide="clock" class="w-3 h-3"></i> ${item.start}-${item.end}
+                        </span>
+                    </div>
+                </div>
+                <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="edit-2" class="w-3 h-3 text-gray-500"></i>
+                </div>
+            `;
+            return el;
+        }
+
+        // --- INTERACTIONS ---
+
+        async function handleDrop(evt, list) {
+            const itemEl = evt.item;
+            const staffId = itemEl.dataset.staffId;
+            const allocId = itemEl.dataset.id;
+            const targetDay = list.dataset.day;
+            const targetBranch = list.dataset.branch;
+
+            // Identify source data (From Pool or Existing Alloc)
+            let staffName, staffRole, staffRate;
+            if (staffId && !allocId) {
+                const s = staffDirectory.find(x => x.id === staffId);
+                staffName = s.name; staffRole = s.role; staffRate = s.defaultRate;
+            } else {
+                const a = allocations.find(x => x.id === allocId);
+                if (a) { staffName = a.name; staffRole = a.role; staffRate = a.rate; }
+            }
+
+            // Duplicate Check
+            const isDuplicate = allocations.some(a => a.name === staffName && a.day === targetDay && a.id !== allocId);
+            if (isDuplicate) {
+                alert(`Error: ${staffName} is already working on ${targetDay}!`);
+                evt.from.appendChild(itemEl); // Revert UI
+                return;
+            }
+
+            // Execute Move
+            if (staffId && !allocId) {
+                // New Allocation
+                itemEl.remove(); // Remove ghost
+                const newId = 'a-' + Date.now();
+                const newAlloc = {
+                    id: newId, staffId, name: staffName, role: staffRole,
+                    branch: targetBranch, day: targetDay, start: '09:00', end: '18:00',
+                    rate: staffRate, totalWage: calculateWage('09:00', '18:00', staffRate)
+                };
+                await createAllocation(newAlloc);
+            } else {
+                // Update Existing
+                const a = allocations.find(x => x.id === allocId);
+                if (a) {
+                    await updateAllocation(allocId, { day: targetDay, branch: targetBranch });
+                }
+            }
+        }
+
+        function initTrash() {
+            new Sortable(trashZoneEl, {
+                group: 'shared',
+                ghostClass: 'opacity-0',
+                onAdd: async (evt) => {
+                    const el = evt.item;
+                    const allocId = el.dataset.id;
+                    el.remove(); // Remove UI
+                    
+                    if (allocId && confirm('Remove this allocation?')) {
+                        await deleteAllocation(allocId);
+                    } else if (allocId) {
+                        renderSchedule(); // Restore if cancelled
+                    }
+                }
+            });
+        }
+
+        // Form Handlers
+        document.getElementById('create-staff-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('new-staff-name').value;
+            const role = document.getElementById('new-staff-role').value;
+            const rate = parseFloat(document.getElementById('new-staff-rate').value) || 100;
+            if(!name) return;
+
+            await addStaff(name, role, rate);
+            document.getElementById('new-staff-name').value = '';
+        });
+
+        window.openEditModal = (id) => {
+            const alloc = allocations.find(a => a.id === id);
+            if (!alloc) return;
+            document.getElementById('edit-id').value = id;
+            document.getElementById('edit-name').value = alloc.name;
+            document.getElementById('edit-start').value = alloc.start;
+            document.getElementById('edit-end').value = alloc.end;
+            document.getElementById('edit-rate').value = alloc.rate;
+            editModal.classList.remove('hidden');
+        };
+        
+        window.closeEditModal = () => editModal.classList.add('hidden');
+
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const start = document.getElementById('edit-start').value;
+            const end = document.getElementById('edit-end').value;
+            const rate = parseFloat(document.getElementById('edit-rate').value);
+
+            const alloc = allocations.find(a => a.id === id);
+            if(alloc) {
+                const updatedData = { 
+                    start, end, rate, 
+                    totalWage: calculateWage(start, end, rate) 
+                };
+                await updateAllocation(id, updatedData);
+                closeEditModal();
+            }
+        });
+
+        window.resetData = () => {
+            if(confirm('Reset all LOCAL data to defaults?')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function calculateWage(start, end, rate) {
+            const [sH, sM] = start.split(':').map(Number);
+            const [eH, eM] = end.split(':').map(Number);
+            let hours = (eH + eM/60) - (sH + sM/60);
+            if (hours < 0) hours += 24;
+            return Math.floor(hours * rate);
+        }
+
+        function updateTotalCost() {
+            const total = allocations.reduce((sum, a) => sum + a.totalWage, 0);
+            totalCostEl.textContent = `฿${total.toLocaleString()}`;
+        }
+
+        // Run Init
+        initApp();
+    </script>
+</body>
+</html>
