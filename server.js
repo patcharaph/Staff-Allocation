@@ -240,7 +240,16 @@ const escapeCsv = (value) => {
 };
 
 app.get('/api/export-csv', (req, res) => {
-  db.all('SELECT * FROM allocations ORDER BY created_at DESC', (err, rows) => {
+  const days = parseInt(req.query.days, 10);
+  let sql = 'SELECT * FROM allocations';
+  const params = [];
+  if (!Number.isNaN(days) && days > 0) {
+    sql += ' WHERE created_at >= datetime("now", ?)';
+    params.push(`-${days} days`);
+  }
+  sql += ' ORDER BY created_at DESC';
+
+  db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: 'Failed to export CSV' });
 
     const header = ['ID', 'Name', 'Role', 'Branch', 'Day', 'Start', 'End', 'Rate', 'Total Wage'];
@@ -262,7 +271,8 @@ app.get('/api/export-csv', (req, res) => {
     const csv = bom + [header.join(','), ...lines].join('\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="allocations.csv"');
+    const suffix = !Number.isNaN(days) && days > 0 ? `-${days}d` : 'all';
+    res.setHeader('Content-Disposition', `attachment; filename="allocations-${suffix}.csv"`);
     res.send(csv);
   });
 });

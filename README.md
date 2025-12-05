@@ -2,6 +2,8 @@
 
 Node.js + Express + SQLite backend for the single-page Staff Allocation app (staff pool + weekly schedule). Replaces the previous Firebase usage with a self-hosted REST API.
 
+![UI Preview](docs/ui-preview.svg)
+
 ## Prerequisites
 - Node.js 16+ recommended
 

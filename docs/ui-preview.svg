@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1228"/>
+      <stop offset="1" stop-color="#07101f"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect x="32" y="32" width="220" height="476" rx="14" fill="#0f1d3a" stroke="#1f2f4f" stroke-width="2"/>
+  <text x="48" y="68" fill="#ccff00" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Staff Pool</text>
+  <text x="48" y="90" fill="#8ea4c8" font-family="Inter, Arial, sans-serif" font-size="11">Drag staff to the schedule</text>
+  <rect x="48" y="110" width="188" height="60" rx="10" fill="#122449" stroke="#2d3f63" stroke-width="1.5"/>
+  <text x="62" y="138" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">แตง</text>
+  <text x="62" y="158" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="10">Manager · ฿250/hr</text>
+  <rect x="48" y="182" width="188" height="60" rx="10" fill="#122449" stroke="#2d3f63" stroke-width="1.5"/>
+  <text x="62" y="210" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">หมวย</text>
+  <text x="62" y="230" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="10">Sales · ฿150/hr</text>
+  <rect x="276" y="32" width="652" height="476" rx="14" fill="#091426" stroke="#1f2f4f" stroke-width="2"/>
+  <text x="296" y="68" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">Weekly Schedule</text>
+  <text x="296" y="92" fill="#8ea4c8" font-family="Inter, Arial, sans-serif" font-size="11">Drag staff into days &amp; branches</text>
+  <g transform="translate(296 112)">
+    <rect x="0" y="0" width="180" height="380" rx="12" fill="#0d1c36" stroke="#1f2f4f" stroke-width="1.5"/>
+    <text x="14" y="24" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">จันทร์</text>
+    <rect x="12" y="42" width="156" height="74" rx="10" fill="#0a1326" stroke="#2d3f63" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="22" y="66" fill="#8ea4c8" font-family="Inter, Arial, sans-serif" font-size="10">ตลาดพุงกาง</text>
+    <rect x="20" y="84" width="140" height="44" rx="8" fill="#122449" stroke="#2d3f63" stroke-width="1"/>
+    <text x="32" y="106" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700">แตง</text>
+    <text x="32" y="122" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="9">09:00-18:00 · ฿2,250</text>
+  </g>
+  <g transform="translate(496 112)">
+    <rect x="0" y="0" width="180" height="380" rx="12" fill="#0d1c36" stroke="#1f2f4f" stroke-width="1.5"/>
+    <text x="14" y="24" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">อังคาร</text>
+    <rect x="12" y="42" width="156" height="74" rx="10" fill="#0a1326" stroke="#2d3f63" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="22" y="66" fill="#8ea4c8" font-family="Inter, Arial, sans-serif" font-size="10">โลตัสบางปะกอก</text>
+    <rect x="20" y="84" width="140" height="44" rx="8" fill="#122449" stroke="#2d3f63" stroke-width="1"/>
+    <text x="32" y="106" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700">หมวย</text>
+    <text x="32" y="122" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="9">10:00-18:00 · ฿1,200</text>
+  </g>
+  <g transform="translate(696 112)">
+    <rect x="0" y="0" width="180" height="380" rx="12" fill="#0d1c36" stroke="#1f2f4f" stroke-width="1.5"/>
+    <text x="14" y="24" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">พุธ</text>
+    <rect x="12" y="42" width="156" height="74" rx="10" fill="#0a1326" stroke="#2d3f63" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="22" y="66" fill="#8ea4c8" font-family="Inter, Arial, sans-serif" font-size="10">กรีนเพลส</text>
+    <rect x="20" y="84" width="140" height="44" rx="8" fill="#122449" stroke="#2d3f63" stroke-width="1"/>
+    <text x="32" y="106" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700">พลอย</text>
+    <text x="32" y="122" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="9">11:00-17:00 · ฿600</text>
+  </g>
+  <rect x="780" y="34" width="110" height="30" rx="8" fill="#ccff00"/>
+  <text x="806" y="54" fill="#081022" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800">API MODE</text>
+</svg>
