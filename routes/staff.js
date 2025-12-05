@@ -86,10 +86,15 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    db.run('DELETE FROM staff_pool WHERE id = ?', [id], function (err) {
-      if (err) return res.status(500).json({ error: 'Failed to delete staff' });
-      if (this.changes === 0) return res.status(404).json({ error: 'Staff not found' });
-      res.json({ success: true });
+    db.run('DELETE FROM allocations WHERE staff_id = ?', [id], function onAllocDelete(allocErr) {
+      if (allocErr) return res.status(500).json({ error: 'Failed to delete staff allocations' });
+      const removedAllocations = this.changes || 0;
+
+      db.run('DELETE FROM staff_pool WHERE id = ?', [id], function onStaffDelete(staffErr) {
+        if (staffErr) return res.status(500).json({ error: 'Failed to delete staff' });
+        const removedStaff = this.changes || 0;
+        res.json({ success: true, removedStaff, removedAllocations });
+      });
     });
   } catch (err) {
     res.status(500).json({ error: 'Unexpected error while deleting staff' });
