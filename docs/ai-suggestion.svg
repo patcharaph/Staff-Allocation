@@ -1,0 +1,21 @@
+<svg width="720" height="400" viewBox="0 0 720 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="400" rx="16" fill="#0b1530"/>
+  <rect x="24" y="24" width="672" height="352" rx="12" fill="#0f1f3f" stroke="#233554" stroke-width="2"/>
+  <text x="48" y="70" fill="#ccff00" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">AI Suggestion Mode</text>
+  <text x="48" y="95" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="11">Example: max 8h/day, min 2 staff/branch, 09:00-18:00</text>
+
+  <rect x="48" y="120" width="624" height="60" rx="10" fill="#112240" stroke="#233554"/>
+  <text x="64" y="150" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">Suggested Slot #1</text>
+  <text x="64" y="170" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="11">Alex · Manager · Central Market · Monday · 09:00-18:00 · ฿2,250</text>
+
+  <rect x="48" y="200" width="624" height="60" rx="10" fill="#112240" stroke="#233554"/>
+  <text x="64" y="230" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">Suggested Slot #2</text>
+  <text x="64" y="250" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="11">Sam · Sales · River Mall · Tuesday · 10:00-18:00 · ฿1,200</text>
+
+  <rect x="48" y="280" width="624" height="60" rx="10" fill="#112240" stroke="#233554"/>
+  <text x="64" y="310" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">Suggested Slot #3</text>
+  <text x="64" y="330" fill="#9fb1cc" font-family="Inter, Arial, sans-serif" font-size="11">Ploy · Staff · Green Plaza · Wednesday · 11:00-17:00 · ฿600</text>
+
+  <rect x="540" y="52" width="116" height="32" rx="8" fill="#ccff00"/>
+  <text x="568" y="73" fill="#0b1530" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700">APPLY</text>
+</svg>

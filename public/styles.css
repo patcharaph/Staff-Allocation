@@ -1,0 +1,27 @@
+body { font-family: 'Inter', sans-serif; background-color: #051025; color: white; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-track { background: #0a192f; }
+::-webkit-scrollbar-thumb { background: #233554; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #ccff00; }
+
+/* Sortable Styles */
+.sortable-ghost { opacity: 0.4; background: #ccff00 !important; border: 2px dashed white !important; }
+.sortable-drag { opacity: 1 !important; transform: scale(1.05) rotate(3deg); cursor: grabbing; z-index: 9999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+
+/* Loading Overlay */
+#loading-overlay { display: flex; transition: opacity 0.5s ease; }
+body.loaded #loading-overlay { opacity: 0; pointer-events: none; }
+
+.card { background: #0a192f; border: 1px solid #233554; border-radius: 12px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+.input { background: #051025; border: 1px solid #233554; border-radius: 8px; padding: 8px 10px; color: white; outline: none; }
+.pill { border: 1px solid #233554; border-radius: 999px; padding: 6px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s ease; }
+.pill.active { background: #ccff00; color: #000; border-color: #ccff00; font-weight: 700; }
+
+.section-tab.active { background: #233554; color: #fff; }
+.section-tab.inactive { background: transparent; color: #9ca3af; }
+
+.icon-btn { padding: 6px; border-radius: 6px; background: #0a192f; border: 1px solid #233554; color: #9ca3af; transition: all 0.15s ease; }
+.icon-btn:hover { color: #ccff00; border-color: #ccff00; }
