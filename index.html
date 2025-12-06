@@ -40,10 +40,7 @@
             <option value="Part-time">Part-time</option>
           </select>
           <input type="number" id="new-staff-rate" value="100" class="w-20 bg-[#051025] border border-[#233554] rounded p-2 text-xs text-white outline-none" placeholder="Rate">
-          <select id="new-staff-rate-unit" class="bg-[#051025] border border-[#233554] rounded p-2 text-xs text-white w-24 outline-none">
-            <option value="hour">Per hour</option>
-            <option value="day">Per day</option>
-          </select>
+          <span class="text-[10px] text-gray-400 uppercase tracking-widest px-2 py-2">per day</span>
         </div>
         <button type="submit" class="w-full bg-[#233554] hover:bg-[#ccff00] hover:text-black text-gray-300 text-xs font-bold py-2 rounded transition-colors uppercase">
           + Create Staff
@@ -94,21 +91,30 @@
       <div class="grid md:grid-cols-3 gap-4">
         <div class="card">
           <p class="text-xs text-gray-400 uppercase tracking-widest">Range</p>
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
             <select id="report-range-select" class="input text-xs">
-              <option value="7">Last 7 days</option>
+              <option value="today">Today</option>
+              <option value="7" selected>Last 7 days</option>
               <option value="30">Last 30 days</option>
-              <option value="custom">Custom</option>
+              <option value="date">Pick a date</option>
+              <option value="range">Custom range</option>
             </select>
-            <div id="report-custom-wrapper" class="flex items-center gap-1 hidden">
-              <input type="number" id="report-custom-days" class="input w-20 text-xs" min="1" value="7">
-              <span class="text-xs text-gray-400">days</span>
+            <div id="report-date-wrapper" class="flex items-center gap-1 hidden">
+              <input type="date" id="report-date" class="input text-xs">
             </div>
+            <div id="report-range-wrapper" class="flex items-center gap-2 hidden">
+              <input type="date" id="report-start" class="input text-xs">
+              <span class="text-xs text-gray-400">to</span>
+              <input type="date" id="report-end" class="input text-xs">
+            </div>
+            <button id="report-run-btn" class="bg-[#233554] hover:bg-[#ccff00] hover:text-black text-gray-200 text-xs font-bold px-3 py-2 rounded uppercase">
+              Execute
+            </button>
           </div>
           <p id="report-range" class="text-lg font-bold text-white mt-1">-</p>
         </div>
         <div class="card">
-          <p class="text-xs text-gray-400 uppercase tracking-widest">Total Wage</p>
+          <p class="text-xs text-gray-400 uppercase tracking-widest">Total Paid</p>
           <p id="report-total-wage" class="text-2xl font-bold text-[#ccff00]">฿0</p>
         </div>
         <div class="card">
@@ -126,7 +132,7 @@
         </div>
         <div class="card">
           <div class="flex justify-between items-center mb-2">
-            <h3 class="text-lg font-bold">Hours per Staff</h3>
+            <h3 class="text-lg font-bold">Paid per Staff</h3>
             <span class="text-xs text-gray-400">weekly</span>
           </div>
           <div id="report-staff-list" class="space-y-2 text-sm"></div>
@@ -203,15 +209,15 @@
           </div>
         </div>
         <div class="space-y-1">
+          <label class="text-xs text-gray-400">Date</label>
+          <input type="date" id="edit-date" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00]">
+        </div>
+        <div class="space-y-1">
           <label class="text-xs text-gray-400">Rate</label>
           <input type="number" id="edit-rate" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00]">
         </div>
         <div class="space-y-1">
-          <label class="text-xs text-gray-400">Rate Unit</label>
-          <select id="edit-rate-unit" class="w-full bg-[#051025] border border-[#233554] rounded p-2 text-white outline-none focus:border-[#ccff00] text-sm">
-            <option value="hour">Per hour</option>
-            <option value="day">Per day</option>
-          </select>
+          <label class="text-xs text-gray-400">Rate (per day)</label>
         </div>
         <div class="flex gap-2 pt-2">
           <button type="button" id="cancel-edit-btn" class="flex-1 py-2 rounded bg-[#233554] text-gray-300 hover:text-white text-xs font-bold uppercase">Cancel</button>
@@ -240,13 +246,7 @@
           Default Rate
           <input type="number" id="staff-rate" class="input" min="0" step="1">
         </label>
-        <label class="text-xs text-gray-400 flex flex-col gap-1">
-          Rate Unit
-          <select id="staff-rate-unit" class="input text-sm">
-            <option value="hour">Per hour</option>
-            <option value="day">Per day</option>
-          </select>
-        </label>
+        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Rate unit: per day</p>
         <div class="flex gap-2 pt-2">
           <button type="button" id="staff-delete-btn" class="flex-1 py-2 rounded bg-red-600 text-white text-xs font-bold uppercase">Delete</button>
           <button type="button" id="staff-cancel-btn" class="flex-1 py-2 rounded bg-[#233554] text-gray-200 text-xs font-bold uppercase">Cancel</button>

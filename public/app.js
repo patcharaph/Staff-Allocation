@@ -2,6 +2,7 @@
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const branches = ['Central Market', 'Downtown', 'River Mall', 'Green Plaza'];
   const API_BASE = `${window.location.origin}/api`;
+  let weekDates = {};
 
   const state = {
     staffDirectory: [],
@@ -64,6 +65,43 @@
     return Math.max(Math.floor(hours * rate), 0);
   };
 
+  const hoursBetween = (start, end) => {
+    if (!start || !end) return 0;
+    const [sH, sM] = String(start).split(':').map(Number);
+    const [eH, eM] = String(end).split(':').map(Number);
+    if ([sH, sM, eH, eM].some(Number.isNaN)) return 0;
+    let hours = (eH + eM / 60) - (sH + sM / 60);
+    if (hours < 0) hours += 24;
+    return Math.max(hours, 0);
+  };
+
+  const currentWeekTemplate = () => {
+    const today = new Date();
+    const dayIdx = today.getDay(); // 0-6, Sunday = 0
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((dayIdx + 6) % 7)); // back to Monday
+    const map = {};
+    daysOfWeek.forEach((_, idx) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + idx);
+      map[daysOfWeek[idx]] = d.toISOString().slice(0, 10);
+    });
+    return map;
+  };
+
+  const computeWeekDates = (allocs) => {
+    const template = currentWeekTemplate();
+    const map = { ...template };
+    allocs.forEach((a) => {
+      if (!a.day || !a.workDate) return;
+      const existing = map[a.day];
+      if (!existing || existing < a.workDate) {
+        map[a.day] = a.workDate;
+      }
+    });
+    return map;
+  };
+
   const toast = (message, type = 'info') => {
     if (!els.toastContainer) return;
     const div = document.createElement('div');
@@ -101,9 +139,6 @@
       btn.classList.toggle('active', isActive);
       btn.classList.toggle('inactive', !isActive);
     });
-    if (section === 'reports') {
-      loadReports().catch(() => {});
-    }
   };
 
   const mapStaffFromApi = (s) => ({
@@ -111,7 +146,7 @@
     name: s.name,
     role: s.role,
     defaultRate: s.default_rate,
-    defaultRateUnit: s.rate_unit || 'hour',
+    defaultRateUnit: s.rate_unit || 'day',
   });
 
   const mapAllocFromApi = (a) => ({
@@ -121,10 +156,11 @@
     role: a.role,
     branch: a.branch,
     day: a.day,
+    workDate: a.work_date,
     start: a.start_time,
     end: a.end_time,
     rate: a.rate,
-    rateUnit: a.rate_unit || 'hour',
+    rateUnit: a.rate_unit || 'day',
     totalWage: a.total_wage,
   });
 
@@ -138,15 +174,62 @@
     renderAll();
   };
 
+  const aggregateStaffTotalsFromAllocations = async (queryString) => {
+    const allocs = await apiFetch(`${API_BASE}/allocations?${queryString}`);
+    const staffMap = {};
+    allocs.forEach((a) => {
+      const key = a.staff_id || a.name || 'unknown';
+      if (!staffMap[key]) {
+        staffMap[key] = { staff_id: a.staff_id || null, name: a.name, role: a.role, hours: 0, wage: 0 };
+      }
+      const wage = a.total_wage ?? calculateWage(a.start_time, a.end_time, a.rate, a.rate_unit);
+      staffMap[key].wage += wage || 0;
+      staffMap[key].hours += hoursBetween(a.start_time, a.end_time);
+    });
+    return Object.values(staffMap).map((s) => ({
+      ...s,
+      hours: Math.round(s.hours * 10) / 10,
+      wage: Math.round(s.wage),
+    }));
+  };
+
   const loadReports = async () => {
     const range = document.getElementById('report-range-select')?.value || '7';
-    const custom = document.getElementById('report-custom-days')?.value;
-    const daysParam = range === 'custom' ? Number(custom) || 7 : Number(range);
-    const data = await apiFetch(`${API_BASE}/reports/weekly?days=${daysParam}`);
+    const dateInput = document.getElementById('report-date')?.value;
+    const startInput = document.getElementById('report-start')?.value;
+    const endInput = document.getElementById('report-end')?.value;
+
+    let queryString = '';
+    let label = '';
+
+    if (range === 'today') {
+      const today = new Date().toISOString().slice(0, 10);
+      queryString = `date=${today}`;
+      label = `Today (${today})`;
+    } else if (range === 'date') {
+      const picked = dateInput || new Date().toISOString().slice(0, 10);
+      queryString = `date=${picked}`;
+      label = `Date: ${picked}`;
+    } else if (range === 'range') {
+      const start = startInput || new Date().toISOString().slice(0, 10);
+      const end = endInput || start;
+      queryString = `start=${start}&end=${end}`;
+      label = `From ${start} to ${end}`;
+    } else {
+      const daysParam = Number(range) || 7;
+      queryString = `days=${daysParam}`;
+      label = `Last ${daysParam} days`;
+    }
+
+    const data = await apiFetch(`${API_BASE}/reports/weekly?${queryString}`);
     if (!data) return;
-    els.reportRange.textContent = `Last ${data.range?.days || 7} days`;
-    els.reportTotalWage.textContent = `฿${(data.totals?.wage || 0).toLocaleString()}`;
-    els.reportTotalHours.textContent = `${data.totals?.hours?.toFixed?.(1) || 0} hrs`;
+    const rangeMeta = data.range || {};
+    if (rangeMeta.date) label = `Date: ${rangeMeta.date}`;
+    else if (rangeMeta.start || rangeMeta.end) label = `From ${rangeMeta.start || rangeMeta.end} to ${rangeMeta.end || rangeMeta.start}`;
+    els.reportRange.textContent = label || 'Last 7 days';
+
+    let totalsWage = data.totals?.wage ?? 0;
+    let totalsHours = data.totals?.hours ?? 0;
 
     els.reportBranchList.innerHTML = '';
     (data.branchTotals || []).forEach((b) => {
@@ -157,10 +240,32 @@
     });
 
     els.reportStaffList.innerHTML = '';
-    (data.staffHours || []).forEach((s) => {
+    let staffSummary = data.staffTotals || data.staffHours || [];
+    const missingWage = !staffSummary.length || staffSummary.every((s) => s.wage === undefined || s.wage === null);
+    if (missingWage) {
+      try {
+        staffSummary = await aggregateStaffTotalsFromAllocations(queryString);
+        totalsWage = staffSummary.reduce((sum, s) => sum + (s.wage || 0), 0);
+        totalsHours = staffSummary.reduce((sum, s) => sum + (s.hours || 0), 0);
+      } catch (err) {
+        console.error('Failed to backfill staff totals', err);
+      }
+    }
+    els.reportTotalWage.textContent = `฿${(totalsWage || 0).toLocaleString()}`;
+    els.reportTotalHours.textContent = `${totalsHours?.toFixed?.(1) || 0} hrs`;
+    staffSummary.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'flex items-center justify-between bg-[#051025] border border-[#233554] rounded px-3 py-2';
-      row.innerHTML = `<div><p class="font-bold">${s.name}</p><p class="text-xs text-gray-400">${s.role || ''}</p></div><span class="font-mono">${(s.hours || 0).toFixed(1)} h</span>`;
+      row.innerHTML = `
+        <div>
+          <p class="font-bold">${s.name}</p>
+          <p class="text-xs text-gray-400">${s.role || ''}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-mono text-[#ccff00]">฿${(s.wage || 0).toLocaleString()}</p>
+          <p class="text-[10px] text-gray-400">${(s.hours || 0).toFixed(1)} h</p>
+        </div>
+      `;
       els.reportStaffList.appendChild(row);
     });
   };
@@ -169,13 +274,13 @@
     const savedStaff = localStorage.getItem('staffDirectory');
     const savedAlloc = localStorage.getItem('allocations');
     state.staffDirectory = savedStaff ? JSON.parse(savedStaff) : [
-      { id: 's1', name: 'Alex', role: 'Manager', defaultRate: 250, defaultRateUnit: 'hour' },
-      { id: 's2', name: 'Sam', role: 'Sales', defaultRate: 150, defaultRateUnit: 'hour' },
-      { id: 's3', name: 'Ploy', role: 'Staff', defaultRate: 100, defaultRateUnit: 'hour' },
-      { id: 's4', name: 'Yee', role: 'Part-time', defaultRate: 80, defaultRateUnit: 'hour' },
+      { id: 's1', name: 'Alex', role: 'Manager', defaultRate: 250, defaultRateUnit: 'day' },
+      { id: 's2', name: 'Sam', role: 'Sales', defaultRate: 150, defaultRateUnit: 'day' },
+      { id: 's3', name: 'Ploy', role: 'Staff', defaultRate: 100, defaultRateUnit: 'day' },
+      { id: 's4', name: 'Yee', role: 'Part-time', defaultRate: 80, defaultRateUnit: 'day' },
     ];
     state.allocations = savedAlloc ? JSON.parse(savedAlloc) : [
-      { id: 'a1', staffId: 's1', name: 'Alex', role: 'Manager', branch: 'Central Market', day: 'Monday', start: '10:00', end: '19:00', rate: 250, rateUnit: 'hour', totalWage: 2250 },
+      { id: 'a1', staffId: 's1', name: 'Alex', role: 'Manager', branch: 'Central Market', day: 'Monday', start: '10:00', end: '19:00', rate: 250, rateUnit: 'day', totalWage: 250 },
     ];
     renderAll();
   };
@@ -237,10 +342,11 @@
           <h4 class="font-bold text-white text-sm truncate">${item.name}</h4>
           <span class="text-[10px] font-mono text-[#ff6b00]">฿${(item.totalWage || 0).toLocaleString()}</span>
         </div>
+        <p class="text-[10px] text-gray-400 font-mono">${item.workDate || ''}</p>
         <div class="flex items-center gap-2 mt-1">
           <span class="text-[10px] bg-[#051025] px-1 py-0.5 rounded text-gray-400">${item.role}</span>
           <span class="text-[10px] text-gray-500 font-mono flex items-center gap-1">
-            <i data-lucide="clock" class="w-3 h-3"></i> ${item.start}-${item.end} (${item.rateUnit === 'day' ? 'per day' : 'per hour'})
+            <i data-lucide="clock" class="w-3 h-3"></i> ${item.start}-${item.end} (per day)
           </span>
         </div>
       </div>
@@ -252,13 +358,19 @@
   };
 
   const renderSchedule = () => {
+    weekDates = computeWeekDates(state.allocations);
     els.scheduleBoard.innerHTML = '';
     daysOfWeek.forEach((day) => {
+      const dateLabel = weekDates[day] || '';
+
       const col = document.createElement('div');
       col.className = 'min-w-[300px] w-[300px] flex flex-col h-full bg-[#0a192f]/50 rounded-xl border border-[#233554] overflow-hidden flex-shrink-0';
       col.innerHTML = `
         <div class="bg-[#112240] p-3 border-b border-[#233554] flex justify-between items-center sticky top-0 z-10">
-          <span class="font-bold text-white uppercase tracking-wider">${day}</span>
+          <div>
+            <span class="font-bold text-white uppercase tracking-wider">${day}</span>
+            <p class="text-[10px] text-gray-400 leading-none">${dateLabel}</p>
+          </div>
           <i data-lucide="calendar" class="w-4 h-4 text-[#ccff00]"></i>
         </div>
         <div class="flex-1 overflow-y-auto p-2 space-y-3"></div>
@@ -306,8 +418,8 @@
     document.getElementById('edit-name').value = alloc.name;
     document.getElementById('edit-start').value = alloc.start;
     document.getElementById('edit-end').value = alloc.end;
+    document.getElementById('edit-date').value = alloc.workDate || new Date().toISOString().slice(0, 10);
     document.getElementById('edit-rate').value = alloc.rate;
-    document.getElementById('edit-rate-unit').value = alloc.rateUnit || 'hour';
     els.editModal.classList.remove('hidden');
   };
 
@@ -321,14 +433,15 @@
     const allocId = itemEl.dataset.id;
     const targetDay = list.dataset.day;
     const targetBranch = list.dataset.branch;
+    const workDate = weekDates[targetDay] || new Date().toISOString().slice(0, 10);
 
-    let staffName; let staffRole; let staffRate; let staffRateUnit = 'hour';
+    let staffName; let staffRole; let staffRate; let staffRateUnit = 'day';
     if (staffId && !allocId) {
       const s = state.staffDirectory.find((x) => x.id === staffId);
-      staffName = s?.name; staffRole = s?.role; staffRate = s?.defaultRate; staffRateUnit = s?.defaultRateUnit || 'hour';
+      staffName = s?.name; staffRole = s?.role; staffRate = s?.defaultRate; staffRateUnit = s?.defaultRateUnit || 'day';
     } else {
       const a = state.allocations.find((x) => x.id === allocId);
-      if (a) { staffName = a.name; staffRole = a.role; staffRate = a.rate; staffRateUnit = a.rateUnit || 'hour'; }
+      if (a) { staffName = a.name; staffRole = a.role; staffRate = a.rate; staffRateUnit = a.rateUnit || 'day'; }
     }
 
     const duplicate = state.allocations.some((a) => a.name === staffName && a.day === targetDay && a.id !== allocId);
@@ -349,6 +462,7 @@
         role: staffRole,
         branch: targetBranch,
         day: targetDay,
+        workDate,
         start,
         end,
         rate: staffRate,
@@ -357,7 +471,7 @@
       };
       await createAllocation(newAlloc);
     } else {
-      await updateAllocation(allocId, { day: targetDay, branch: targetBranch });
+      await updateAllocation(allocId, { day: targetDay, branch: targetBranch, workDate });
     }
   };
 
@@ -430,8 +544,6 @@
     els.staffNameInput.value = staff.name;
     els.staffRoleInput.value = staff.role;
     els.staffRateInput.value = staff.defaultRate ?? '';
-    const rateUnitSelect = document.getElementById('staff-rate-unit');
-    if (rateUnitSelect) rateUnitSelect.value = staff.defaultRateUnit || 'hour';
     els.staffModal.classList.remove('hidden');
     els.staffModal.classList.add('flex');
   };
@@ -442,6 +554,7 @@
   };
 
   const createAllocation = async (allocData) => {
+    const workDate = allocData.workDate || new Date().toISOString().slice(0, 10);
     if (state.mode === 'api') {
       const payload = {
         id: allocData.id,
@@ -450,10 +563,11 @@
         role: allocData.role,
         branch: allocData.branch,
         day: allocData.day,
+        work_date: workDate,
         start_time: allocData.start,
         end_time: allocData.end,
         rate: allocData.rate,
-        rate_unit: allocData.rateUnit || 'hour',
+        rate_unit: allocData.rateUnit || 'day',
         total_wage: allocData.totalWage,
       };
       const created = await apiFetch(`${API_BASE}/allocations`, {
@@ -462,7 +576,7 @@
       });
       state.allocations.push(mapAllocFromApi(created));
     } else {
-      state.allocations.push(allocData);
+      state.allocations.push({ ...allocData, workDate });
       saveLocalData();
     }
     renderSchedule();
@@ -476,7 +590,8 @@
         staff_id: data.staffId,
         start_time: data.start,
         end_time: data.end,
-        rate_unit: data.rateUnit,
+        work_date: data.workDate,
+        rate_unit: data.rateUnit || 'day',
         total_wage: data.totalWage,
       };
       const updated = await apiFetch(`${API_BASE}/allocations/${id}`, {
@@ -591,6 +706,7 @@
         role: s.role,
         branch: s.branch,
         day: s.day,
+        workDate: s.work_date || new Date().toISOString().slice(0, 10),
         start: s.start_time,
         end: s.end_time,
         rate: s.rate,
@@ -607,7 +723,7 @@
       const name = document.getElementById('new-staff-name').value;
       const role = document.getElementById('new-staff-role').value;
       const rate = parseFloat(document.getElementById('new-staff-rate').value);
-      const rateUnit = document.getElementById('new-staff-rate-unit').value || 'hour';
+      const rateUnit = 'day';
       if (!name?.trim() || !role?.trim()) return toast('Name and role required', 'error');
       try {
         await addStaff(name, role, rate, rateUnit);
@@ -623,9 +739,10 @@
     const start = document.getElementById('edit-start').value;
     const end = document.getElementById('edit-end').value;
     const rate = parseFloat(document.getElementById('edit-rate').value);
-    const rateUnit = document.getElementById('edit-rate-unit').value;
+    const rateUnit = 'day';
+    const workDate = document.getElementById('edit-date').value || new Date().toISOString().slice(0, 10);
     try {
-      await updateAllocation(id, { start, end, rate, rateUnit, totalWage: calculateWage(start, end, rate, rateUnit) });
+      await updateAllocation(id, { start, end, rate, rateUnit, workDate, totalWage: calculateWage(start, end, rate, rateUnit) });
       closeEditModal();
       toast('Allocation updated', 'success');
     } catch (err) {
@@ -648,10 +765,20 @@
     });
     document.getElementById('report-range-select').addEventListener('change', () => {
       const range = document.getElementById('report-range-select').value;
-      document.getElementById('report-custom-wrapper').classList.toggle('hidden', range !== 'custom');
-      loadReports().catch((err) => toast(err.message, 'error'));
+      const showDate = range === 'date' || range === 'today';
+      const showRange = range === 'range';
+      document.getElementById('report-date-wrapper').classList.toggle('hidden', !showDate);
+      document.getElementById('report-range-wrapper').classList.toggle('hidden', !showRange);
+      if (showDate && document.getElementById('report-date').value === '') {
+        document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
+      }
+      if (showRange) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (document.getElementById('report-start').value === '') document.getElementById('report-start').value = today;
+        if (document.getElementById('report-end').value === '') document.getElementById('report-end').value = today;
+      }
     });
-    document.getElementById('report-custom-days').addEventListener('change', () => {
+    document.getElementById('report-run-btn').addEventListener('click', () => {
       loadReports().catch((err) => toast(err.message, 'error'));
     });
     document.getElementById('generate-suggest-btn').addEventListener('click', () => {
@@ -688,7 +815,7 @@
       const name = els.staffNameInput.value;
       const role = els.staffRoleInput.value;
       const rate = parseFloat(els.staffRateInput.value);
-      const rateUnit = document.getElementById('staff-rate-unit')?.value || 'hour';
+      const rateUnit = 'day';
       updateStaff(id, { name, role, rate, rateUnit }).catch((err) => toast(err.message, 'error')).finally(closeStaffModal);
     });
   };
@@ -697,6 +824,15 @@
     buildPills();
     initEvents();
     initTrash();
+    const dateInput = document.getElementById('report-date');
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+    const startInput = document.getElementById('report-start');
+    const endInput = document.getElementById('report-end');
+    const today = new Date().toISOString().slice(0, 10);
+    if (startInput && !startInput.value) startInput.value = today;
+    if (endInput && !endInput.value) endInput.value = today;
     try {
       await loadFromApi();
       setMode('api');

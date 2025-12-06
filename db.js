@@ -31,6 +31,7 @@ function initDb() {
         role TEXT,
         branch TEXT,
         day TEXT,
+        work_date TEXT,
         start_time TEXT,
         end_time TEXT,
         rate REAL,
@@ -43,6 +44,8 @@ function initDb() {
 
     // Backfill columns for older databases (ignore error if exists)
     db.run(`ALTER TABLE allocations ADD COLUMN rate_unit TEXT DEFAULT 'hour'`, () => {});
+    db.run(`ALTER TABLE allocations ADD COLUMN work_date TEXT`, () => {});
+    db.run(`UPDATE allocations SET work_date = date(created_at) WHERE work_date IS NULL`, () => {});
     db.run(`ALTER TABLE staff_pool ADD COLUMN rate_unit TEXT DEFAULT 'hour'`, () => {});
   });
 }

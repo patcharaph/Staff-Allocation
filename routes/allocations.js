@@ -7,12 +7,24 @@ const router = express.Router();
 router.get('/', (req, res) => {
   try {
     const days = parseInt(req.query.days, 10);
-    let sql = 'SELECT * FROM allocations';
+    const dateParam = typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : null;
+    const startParam = typeof req.query.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.start) ? req.query.start : null;
+    const endParam = typeof req.query.end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.end) ? req.query.end : null;
+
+    let sql = 'SELECT * FROM allocations WHERE 1=1';
     const params = [];
-    if (!Number.isNaN(days) && days > 0) {
-      sql += ' WHERE created_at >= datetime("now", ?)';
+
+    if (dateParam) {
+      sql += ' AND date(work_date) = date(?)';
+      params.push(dateParam);
+    } else if (startParam || endParam) {
+      sql += ' AND date(work_date) BETWEEN date(?) AND date(?)';
+      params.push(startParam || endParam, endParam || startParam);
+    } else if (!Number.isNaN(days) && days > 0) {
+      sql += ' AND work_date >= date("now", ?)';
       params.push(`-${days} days`);
     }
+
     sql += ' ORDER BY created_at DESC';
 
     db.all(sql, params, (err, rows) => {
@@ -26,7 +38,7 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   try {
-    const { staff_id, name, role, branch, day, start_time, end_time, rate, total_wage, rate_unit } = req.body;
+    const { staff_id, name, role, branch, day, work_date, start_time, end_time, rate, total_wage, rate_unit } = req.body;
 
     if (![name, role, branch, day, start_time, end_time].every(isNonEmptyString)) {
       return res.status(400).json({ error: 'name, role, branch, day, start_time, end_time are required' });
@@ -41,13 +53,15 @@ router.post('/', (req, res) => {
 
     const stmt = `
       INSERT INTO allocations
-        (id, staff_id, name, role, branch, day, start_time, end_time, rate, rate_unit, total_wage)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, staff_id, name, role, branch, day, work_date, start_time, end_time, rate, rate_unit, total_wage)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
+
+    const workDate = /^\d{4}-\d{2}-\d{2}$/.test(work_date || '') ? work_date : new Date().toISOString().slice(0, 10);
 
     db.run(
       stmt,
-      [id, staff_id || null, name.trim(), role.trim(), branch.trim(), day.trim(), start_time.trim(), end_time.trim(), rateCheck.value, unit, wage],
+      [id, staff_id || null, name.trim(), role.trim(), branch.trim(), day.trim(), workDate, start_time.trim(), end_time.trim(), rateCheck.value, unit, wage],
       function (err) {
         if (err) return res.status(500).json({ error: 'Failed to create allocation' });
         res.status(201).json({
@@ -57,6 +71,7 @@ router.post('/', (req, res) => {
           role: role.trim(),
           branch: branch.trim(),
           day: day.trim(),
+          work_date: workDate,
           start_time: start_time.trim(),
           end_time: end_time.trim(),
           rate: rateCheck.value,
@@ -84,6 +99,7 @@ router.put('/:id', (req, res) => {
         role: req.body.role ?? row.role,
         branch: req.body.branch ?? row.branch,
         day: req.body.day ?? row.day,
+        work_date: req.body.work_date ?? row.work_date ?? row.created_at,
         start_time: req.body.start_time ?? row.start_time,
         end_time: req.body.end_time ?? row.end_time,
         rate: req.body.rate ?? row.rate,
@@ -110,7 +126,7 @@ router.put('/:id', (req, res) => {
 
       const stmt = `
         UPDATE allocations SET
-          staff_id = ?, name = ?, role = ?, branch = ?, day = ?,
+          staff_id = ?, name = ?, role = ?, branch = ?, day = ?, work_date = ?,
           start_time = ?, end_time = ?, rate = ?, rate_unit = ?, total_wage = ?
         WHERE id = ?
       `;
@@ -123,6 +139,7 @@ router.put('/:id', (req, res) => {
           updated.role.trim(),
           updated.branch.trim(),
           updated.day.trim(),
+          updated.work_date ? String(updated.work_date).slice(0, 10) : null,
           updated.start_time.trim(),
           updated.end_time.trim(),
           updated.rate,
