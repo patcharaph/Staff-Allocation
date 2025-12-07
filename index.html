@@ -78,8 +78,40 @@
     </header>
 
     <section id="schedule-section" class="flex-1 relative flex flex-col">
-      <div class="flex-1 overflow-x-auto overflow-y-hidden p-4">
-        <div id="schedule-board" class="flex gap-4 h-full pb-2 w-max"></div>
+      <div class="flex-1 flex flex-col p-4 gap-3">
+        <div class="bg-[#0a192f] text-white rounded-2xl shadow border border-[#233554] px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div class="flex items-center flex-wrap gap-3">
+            <div class="flex items-center gap-2">
+              <button id="prev-week-btn" class="w-10 h-10 flex items-center justify-center rounded-full border border-[#233554] bg-[#112240] hover:bg-[#13294d] transition-colors" title="Previous week">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <button id="this-week-btn" class="px-3 py-2 rounded-full border border-[#233554] bg-[#112240] hover:bg-[#13294d] text-sm font-semibold transition-colors">
+                This Week
+              </button>
+              <button id="next-week-btn" class="w-10 h-10 flex items-center justify-center rounded-full border border-[#233554] bg-[#112240] hover:bg-[#13294d] transition-colors" title="Next week">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <div class="pl-3 md:pl-4 border-l border-[#233554]">
+              <p id="week-range-text" class="font-semibold text-sm md:text-base">Loading week...</p>
+              <p class="text-xs text-gray-400">Mon–Sun range</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="cleanup-week-btn" class="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#233554] bg-[#112240] hover:bg-[#13294d] text-sm font-semibold transition-colors">
+              <i data-lucide="trash-2" class="w-4 h-4"></i> Cleanup
+            </button>
+            <button id="export-range-btn" class="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#233554] bg-[#112240] hover:bg-[#13294d] text-sm font-semibold transition-colors">
+              <i data-lucide="download" class="w-4 h-4"></i> Export Range
+            </button>
+            <button id="copy-next-week-btn" class="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#233554] bg-[#233554] text-white hover:bg-[#2c3f63] text-sm font-semibold transition-colors">
+              <i data-lucide="copy" class="w-4 h-4"></i> Copy to Next Week
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-x-auto overflow-y-hidden">
+          <div id="schedule-board" class="flex gap-4 h-full pb-2 w-max"></div>
+        </div>
       </div>
       <div id="trash-zone" class="absolute bottom-6 right-6 w-16 h-16 bg-[#112240] border-2 border-red-900/50 rounded-full flex items-center justify-center shadow-2xl cursor-pointer transition-all z-50 group hover:bg-red-900/20 hover:border-red-500">
         <i data-lucide="trash-2" class="w-6 h-6 text-gray-500 group-hover:text-red-500 transition-colors"></i>

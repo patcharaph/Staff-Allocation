@@ -3,6 +3,86 @@
   const branches = ['Central Market', 'Downtown', 'River Mall', 'Green Plaza'];
   const API_BASE = `${window.location.origin}/api`;
   let weekDates = {};
+  let currentWeekStart = null;
+
+  const getStartOfWeek = (date = new Date()) => {
+    const d = new Date(date);
+    const dayIdx = d.getDay();
+    const diff = (dayIdx + 6) % 7; // Monday as start
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - diff);
+    return d;
+  };
+
+  const getWeekDatesFromStart = (startDate) => {
+    const map = {};
+    daysOfWeek.forEach((day, idx) => {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + idx);
+      map[day] = d.toISOString().slice(0, 10);
+    });
+    return map;
+  };
+
+  const formatDayLabel = (day) => {
+    if (!day) return '';
+    const isEnglish = /^[A-Za-z]/.test(day);
+    return isEnglish ? day.slice(0, 3) : day;
+  };
+
+  const formatDateLabel = (dateObj) => {
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = dateObj.toLocaleString('en-US', { month: 'short' });
+    const year = dateObj.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const formatWeekRangeText = (startDate) => {
+    const start = new Date(startDate);
+    const end = new Date(startDate);
+    end.setDate(startDate.getDate() + 6);
+    return `${formatDayLabel(daysOfWeek[0])} ${formatDateLabel(start)} — ${formatDayLabel(daysOfWeek[6])} ${formatDateLabel(end)}`;
+  };
+
+  const updateCalendarHeader = () => {
+    weekDates = getWeekDatesFromStart(currentWeekStart);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('[data-day-header]').forEach((header) => {
+      const dayKey = header.dataset.dayHeader;
+      const idx = daysOfWeek.indexOf(dayKey);
+      if (idx === -1) return;
+      const dateObj = new Date(currentWeekStart);
+      dateObj.setDate(currentWeekStart.getDate() + idx);
+      const iso = dateObj.toISOString().slice(0, 10);
+      const nameEl = header.querySelector('[data-day-name]');
+      const dateEl = header.querySelector('[data-day-date]');
+      if (nameEl) nameEl.textContent = formatDayLabel(dayKey);
+      if (dateEl) dateEl.textContent = formatDateLabel(dateObj);
+      const isToday = iso === todayIso;
+      header.classList.toggle('ring-2', isToday);
+      header.classList.toggle('ring-lime-300', isToday);
+      header.classList.toggle('shadow-lg', isToday);
+    });
+    if (els.weekRangeText) {
+      els.weekRangeText.textContent = formatWeekRangeText(currentWeekStart);
+    }
+  };
+
+  const shiftWeek = (delta) => {
+    const next = new Date(currentWeekStart);
+    next.setDate(currentWeekStart.getDate() + (delta * 7));
+    currentWeekStart = getStartOfWeek(next);
+    renderSchedule();
+  };
+
+  const prevWeek = () => shiftWeek(-1);
+  const nextWeek = () => shiftWeek(1);
+  const resetToThisWeek = () => {
+    currentWeekStart = getStartOfWeek(new Date());
+    renderSchedule();
+  };
+
+  currentWeekStart = getStartOfWeek(new Date());
 
   const state = {
     staffDirectory: [],
@@ -23,6 +103,13 @@
     scheduleSection: document.getElementById('schedule-section'),
     reportsSection: document.getElementById('reports-section'),
     aiSection: document.getElementById('ai-section'),
+    weekRangeText: document.getElementById('week-range-text'),
+    prevWeekBtn: document.getElementById('prev-week-btn'),
+    nextWeekBtn: document.getElementById('next-week-btn'),
+    thisWeekBtn: document.getElementById('this-week-btn'),
+    cleanupWeekBtn: document.getElementById('cleanup-week-btn'),
+    exportRangeBtn: document.getElementById('export-range-btn'),
+    copyNextWeekBtn: document.getElementById('copy-next-week-btn'),
     reportRange: document.getElementById('report-range'),
     reportTotalWage: document.getElementById('report-total-wage'),
     reportTotalHours: document.getElementById('report-total-hours'),
@@ -73,33 +160,6 @@
     let hours = (eH + eM / 60) - (sH + sM / 60);
     if (hours < 0) hours += 24;
     return Math.max(hours, 0);
-  };
-
-  const currentWeekTemplate = () => {
-    const today = new Date();
-    const dayIdx = today.getDay(); // 0-6, Sunday = 0
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((dayIdx + 6) % 7)); // back to Monday
-    const map = {};
-    daysOfWeek.forEach((_, idx) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + idx);
-      map[daysOfWeek[idx]] = d.toISOString().slice(0, 10);
-    });
-    return map;
-  };
-
-  const computeWeekDates = (allocs) => {
-    const template = currentWeekTemplate();
-    const map = { ...template };
-    allocs.forEach((a) => {
-      if (!a.day || !a.workDate) return;
-      const existing = map[a.day];
-      if (!existing || existing < a.workDate) {
-        map[a.day] = a.workDate;
-      }
-    });
-    return map;
   };
 
   const toast = (message, type = 'info') => {
@@ -358,20 +418,20 @@
   };
 
   const renderSchedule = () => {
-    weekDates = computeWeekDates(state.allocations);
+    weekDates = getWeekDatesFromStart(currentWeekStart);
     els.scheduleBoard.innerHTML = '';
     daysOfWeek.forEach((day) => {
-      const dateLabel = weekDates[day] || '';
-
       const col = document.createElement('div');
       col.className = 'min-w-[300px] w-[300px] flex flex-col h-full bg-[#0a192f]/50 rounded-xl border border-[#233554] overflow-hidden flex-shrink-0';
       col.innerHTML = `
-        <div class="bg-[#112240] p-3 border-b border-[#233554] flex justify-between items-center sticky top-0 z-10">
-          <div>
-            <span class="font-bold text-white uppercase tracking-wider">${day}</span>
-            <p class="text-[10px] text-gray-400 leading-none">${dateLabel}</p>
+        <div class="bg-[#0f203d] text-white p-3 border-b border-[#233554] flex justify-between items-center sticky top-0 z-10" data-day-header="${day}">
+          <div class="space-y-0.5">
+            <p class="text-sm font-semibold leading-tight" data-day-name>${formatDayLabel(day)}</p>
+            <p class="text-xs text-gray-300 font-mono" data-day-date>--</p>
           </div>
-          <i data-lucide="calendar" class="w-4 h-4 text-[#ccff00]"></i>
+          <div class="w-9 h-9 rounded-full bg-[#13294d] border border-[#233554] flex items-center justify-center text-gray-200 shadow">
+            <i data-lucide="calendar" class="w-4 h-4"></i>
+          </div>
         </div>
         <div class="flex-1 overflow-y-auto p-2 space-y-3"></div>
       `;
@@ -403,6 +463,7 @@
 
       els.scheduleBoard.appendChild(col);
     });
+    updateCalendarHeader();
     lucide.createIcons();
   };
 
@@ -760,6 +821,12 @@
     document.getElementById('refresh-btn').addEventListener('click', () => {
       loadFromApi().then(() => toast('Refreshed', 'success')).catch((err) => toast(err.message, 'error'));
     });
+    if (els.prevWeekBtn) els.prevWeekBtn.addEventListener('click', prevWeek);
+    if (els.nextWeekBtn) els.nextWeekBtn.addEventListener('click', nextWeek);
+    if (els.thisWeekBtn) els.thisWeekBtn.addEventListener('click', resetToThisWeek);
+    if (els.cleanupWeekBtn) els.cleanupWeekBtn.addEventListener('click', () => toast('Cleanup action coming soon', 'info'));
+    if (els.exportRangeBtn) els.exportRangeBtn.addEventListener('click', () => toast('Export current range via CSV export in Reports', 'info'));
+    if (els.copyNextWeekBtn) els.copyNextWeekBtn.addEventListener('click', () => toast('Copy to next week feature is not wired yet', 'info'));
     els.tabs.forEach((btn) => {
       btn.addEventListener('click', () => switchSection(btn.dataset.section));
     });
