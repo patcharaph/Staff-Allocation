@@ -17,6 +17,7 @@ Node.js + Express + SQLite backend for a single-page Staff Allocation app (staff
 ```bash
 npm install
 node server.js
+
 # API + static UI runs at http://localhost:3000
 ```
 

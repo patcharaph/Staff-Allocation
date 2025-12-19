@@ -2,7 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'database.sqlite');
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+const DB_PATH =
+  process.env.DB_PATH || (isVercel ? path.join('/tmp', 'database.sqlite') : path.join(__dirname, 'database.sqlite'));
 const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS || '14', 10); // default 2 weeks
 
 if (!fs.existsSync(DB_PATH)) {
@@ -67,6 +69,7 @@ function pruneOldAllocations() {
 
 function startRetentionJob() {
   pruneOldAllocations();
+  if (isVercel) return; // serverless functions should not keep timers alive
   setInterval(pruneOldAllocations, 24 * 60 * 60 * 1000);
 }
 
